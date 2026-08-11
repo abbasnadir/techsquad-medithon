@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:frontend/core/theme.dart';
-import 'package:frontend/features/home/home_screen.dart';
+import 'package:frontend/features/auth/login_screen.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await dotenv.load(fileName: ".env");
   runApp(const MedithonApp());
 }
 
@@ -12,11 +15,11 @@ class MedithonApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Medithon App',
+      title: 'Medithon',
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
-      themeMode: ThemeMode.system, // Adapts to device lightweight preferences
-      home: const HomeScreen(),
+      themeMode: ThemeMode.system,
+      home: const LoginScreen(),
       debugShowCheckedModeBanner: false,
     );
   }

@@ -13,8 +13,4 @@ services:
     environment:
       - FLASK_ENV=development
 
-  frontend:
-    build:
-      context: ./packages/frontend
-    ports:
-      - "8080:80"
+
