@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./packages/backend
+    ports:
+      - "5000:5000"
+    env_file:
+      - ./packages/backend/.env
+    volumes:
+      - ./packages/backend:/app
+    environment:
+      - FLASK_ENV=development
+
+  frontend:
+    build:
+      context: ./packages/frontend
+    ports:
+      - "8080:80"
