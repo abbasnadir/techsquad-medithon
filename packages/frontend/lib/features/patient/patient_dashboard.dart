@@ -1,66 +1,191 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:frontend/features/auth/login_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-class PatientDashboard extends StatelessWidget {
+class PatientDashboard extends StatefulWidget {
   const PatientDashboard({super.key});
+
+  @override
+  State<PatientDashboard> createState() => _PatientDashboardState();
+}
+
+class _PatientDashboardState extends State<PatientDashboard> {
+  int _braceHours = 18;
+
+  void _logout(BuildContext context) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('jwt_token');
+    if (context.mounted) {
+      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const LoginScreen()));
+    }
+  }
+
+  void _logBraceHour() {
+    setState(() {
+      if (_braceHours < 23) _braceHours++;
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Brace usage logged successfully!')),
+    );
+  }
+
+  void _showTeleConsultDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Contact Clinic'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            DropdownButtonFormField<String>(
+              decoration: const InputDecoration(labelText: 'Issue Type', border: OutlineInputBorder()),
+              items: const [
+                DropdownMenuItem(value: 'Pain', child: Text('Pain / Discomfort')),
+                DropdownMenuItem(value: 'Swelling', child: Text('Swelling / Redness')),
+                DropdownMenuItem(value: 'Brace', child: Text('Brace Broken / Doesn\'t Fit')),
+                DropdownMenuItem(value: 'Other', child: Text('Other Question')),
+              ],
+              onChanged: (_) {},
+            ),
+            const SizedBox(height: 16),
+            const TextField(
+              maxLines: 3,
+              decoration: InputDecoration(labelText: 'Describe the issue...', border: OutlineInputBorder()),
+            ),
+            const SizedBox(height: 16),
+            OutlinedButton.icon(
+              onPressed: () {},
+              icon: const Icon(Icons.camera_alt),
+              label: const Text('Attach Photo of Foot'),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Secure message & photo sent to the clinic!')),
+              );
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.teal, foregroundColor: Colors.white),
+            child: const Text('Send to Doctor'),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Patient Details'),
+        title: const Text('My Medithon Care'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: () => _logout(context),
+          ),
+        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _buildPatientHeader(context),
+            const Text(
+              'Welcome!',
+              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+            _buildDailyInfoCard(context),
+            const SizedBox(height: 24),
+            _buildContactDoctorCard(context),
             const SizedBox(height: 24),
             const Text(
-              'Pirani Score Progress (Right Foot)',
+              'My Treatment Progress',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
             _buildProgressGraph(context),
-            const SizedBox(height: 24),
-            const Text(
-              'Visit History',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            _buildVisitHistory(),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildPatientHeader(BuildContext context) {
+  Widget _buildDailyInfoCard(BuildContext context) {
     return Card(
-      elevation: 2,
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Row(
+      elevation: 4,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          gradient: LinearGradient(
+            colors: [Colors.teal.shade300, Colors.teal.shade700],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            CircleAvatar(
-              radius: 30,
-              backgroundColor: Theme.of(context).primaryColor.withOpacity(0.2),
-              child: const Icon(Icons.person, size: 40, color: Colors.teal),
+            const Text(
+              'Daily Brace Tracker',
+              style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
             ),
-            const SizedBox(width: 16),
-            const Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Demo Child 01', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                  Text('ID: MED-0012', style: TextStyle(color: Colors.grey)),
-                  Text('Age: 6 months | Bilateral CTEV', style: TextStyle(color: Colors.grey)),
-                ],
+            const SizedBox(height: 8),
+            const Text(
+              'Please ensure the Foot Abduction Brace (FAB) is worn for 23 hours today.',
+              style: TextStyle(color: Colors.white70, fontSize: 14),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('Progress:', style: TextStyle(color: Colors.white)),
+                Text('$_braceHours / 23 Hours', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+              ],
+            ),
+            const SizedBox(height: 8),
+            LinearProgressIndicator(value: _braceHours / 23, backgroundColor: Colors.white24, color: Colors.white),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: _braceHours < 23 ? _logBraceHour : null,
+                icon: const Icon(Icons.timer),
+                label: Text(_braceHours < 23 ? 'Log +1 Hour of Brace Wear' : 'Daily Goal Reached!'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  foregroundColor: Colors.teal,
+                ),
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildContactDoctorCard(BuildContext context) {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        leading: const CircleAvatar(
+          backgroundColor: Colors.redAccent,
+          child: Icon(Icons.medical_services, color: Colors.white),
+        ),
+        title: const Text('Contact Healthcare Worker', style: TextStyle(fontWeight: FontWeight.bold)),
+        subtitle: const Text('Report pain, swelling, or ask questions.'),
+        trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+        onTap: () => _showTeleConsultDialog(context),
       ),
     );
   }
@@ -79,9 +204,7 @@ class PatientDashboard extends StatelessWidget {
                 bottomTitles: AxisTitles(
                   sideTitles: SideTitles(
                     showTitles: true,
-                    getTitlesWidget: (value, meta) {
-                      return Text('W${value.toInt()}', style: const TextStyle(fontSize: 12));
-                    },
+                    getTitlesWidget: (value, meta) => Text('W${value.toInt()}', style: const TextStyle(fontSize: 12)),
                   ),
                 ),
                 leftTitles: AxisTitles(
@@ -89,9 +212,7 @@ class PatientDashboard extends StatelessWidget {
                     showTitles: true,
                     reservedSize: 30,
                     interval: 1,
-                    getTitlesWidget: (value, meta) {
-                      return Text(value.toString(), style: const TextStyle(fontSize: 12));
-                    },
+                    getTitlesWidget: (value, meta) => Text(value.toString(), style: const TextStyle(fontSize: 12)),
                   ),
                 ),
                 topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
@@ -120,36 +241,6 @@ class PatientDashboard extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
-
-  Widget _buildVisitHistory() {
-    final visits = [
-      {'date': 'Oct 12, 2026', 'score': '1.5', 'action': 'Tenotomy scheduled'},
-      {'date': 'Oct 5, 2026', 'score': '2.5', 'action': 'Cast 3 applied'},
-      {'date': 'Sep 28, 2026', 'score': '3.5', 'action': 'Cast 2 applied'},
-      {'date': 'Sep 21, 2026', 'score': '4.5', 'action': 'Cast 1 applied'},
-    ];
-
-    return ListView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: visits.length,
-      itemBuilder: (context, index) {
-        final visit = visits[index];
-        return Card(
-          margin: const EdgeInsets.only(bottom: 8),
-          child: ListTile(
-            leading: CircleAvatar(
-              backgroundColor: Colors.teal.shade100,
-              child: Text('W${4 - index}'),
-            ),
-            title: Text(visit['date']!),
-            subtitle: Text(visit['action']!),
-            trailing: Text('Score: ${visit['score']}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-          ),
-        );
-      },
     );
   }
 }

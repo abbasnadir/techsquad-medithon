@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:frontend/features/nurse/nurse_dashboard.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:frontend/core/api_client.dart';
+import 'package:frontend/features/healthcare_worker/healthcare_worker_dashboard.dart';
+import 'package:frontend/features/patient/patient_dashboard.dart';
+import 'package:frontend/features/auth/register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -15,15 +19,33 @@ class _LoginScreenState extends State<LoginScreen> {
 
   void _login() async {
     setState(() => _isLoading = true);
-    // TODO: Connect to actual backend auth using dotenv variables
-    await Future.delayed(const Duration(seconds: 1)); // Mock delay
-    setState(() => _isLoading = false);
+    
+    // Simulate short network delay for the prototype feel
+    await Future.delayed(const Duration(milliseconds: 500));
+    
+    final user = _emailCtrl.text.trim();
+    final pass = _passCtrl.text;
     
     if (mounted) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const NurseDashboard()),
-      );
+      setState(() => _isLoading = false);
+      
+      if (user == 'patient' && pass == 'patient123') {
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (_) => const PatientDashboard()),
+          (route) => false,
+        );
+      } else if (user == 'nurse' && pass == 'nurse123') {
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (_) => const HealthcareWorkerDashboard()),
+          (route) => false,
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Invalid prototype credentials. Use nurse/nurse123 or patient/patient123')),
+        );
+      }
     }
   }
 
@@ -75,6 +97,13 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: _isLoading 
                     ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
                     : const Text('Login'),
+              ),
+              const SizedBox(height: 16),
+              TextButton(
+                onPressed: () {
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => const RegisterScreen()));
+                },
+                child: const Text("Don't have an account? Register"),
               ),
             ],
           ),

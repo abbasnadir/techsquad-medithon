@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:frontend/features/scan/scan_flow_screen.dart';
 import 'package:frontend/features/patient/patient_dashboard.dart';
+import 'package:frontend/features/healthcare_worker/patient_list_screen.dart';
 
-class NurseDashboard extends StatelessWidget {
-  const NurseDashboard({super.key});
+class HealthcareWorkerDashboard extends StatelessWidget {
+  const HealthcareWorkerDashboard({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -23,7 +24,7 @@ class NurseDashboard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const Text(
-              'Welcome, Nurse',
+              'Welcome, Healthcare Worker',
               style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
@@ -47,12 +48,51 @@ class NurseDashboard extends StatelessWidget {
               subtitle: 'Search records & track treatment progress',
               onTap: () => Navigator.push(
                 context,
-                MaterialPageRoute(builder: (_) => const PatientDashboard()),
+                MaterialPageRoute(builder: (_) => const PatientListScreen()),
               ),
+            ),
+            const SizedBox(height: 16),
+            _buildActionCard(
+              context,
+              icon: Icons.email,
+              title: 'Link Patient Email',
+              subtitle: 'Grant a parent access to their child\'s dashboard',
+              onTap: () => _showLinkEmailDialog(context),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  void _showLinkEmailDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Link Patient Email'),
+          content: const Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('Enter the parent\'s email address to send them a secure link to their child\'s Medithon dashboard.'),
+              SizedBox(height: 16),
+              TextField(
+                decoration: InputDecoration(labelText: 'Parent Email', border: OutlineInputBorder()),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Invitation sent successfully!')));
+              },
+              child: const Text('Send Invite'),
+            ),
+          ],
+        );
+      }
     );
   }
 
