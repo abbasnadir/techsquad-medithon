@@ -5,13 +5,26 @@ This is a monorepo setup for a Flutter Frontend and Flask Backend using PostgreS
 ## Directory Structure
 - `packages/backend/`: Contains the Flask API backend.
 - `packages/frontend/`: Contains the Flutter application.
+- `run.sh`: Bash script to easily boot the frontend or backend.
 
 ## Prerequisites
-- Docker & Docker Compose
-- Python 3.11+ (for local backend development)
+- `uv` (Lightning-fast Python package manager)
+- Python 3.12+ (for local backend development)
 - Flutter SDK (for local frontend development)
 
-## 1. Setting up the Backend
+## 1. Running the Project (Fast Way)
+We have provided a bash script to handle all dependencies and boot the servers automatically.
+
+1. **Backend**:
+   ```bash
+   ./run.sh backend
+   ```
+2. **Frontend**:
+   ```bash
+   ./run.sh frontend
+   ```
+
+## 2. Setting up the Backend (Manual)
 
 1. Navigate to the backend directory:
    ```bash
@@ -23,38 +36,20 @@ This is a monorepo setup for a Flutter Frontend and Flask Backend using PostgreS
    ```
 3. Update `.env` with your Neon PostgreSQL connection string and a secure `SECRET_KEY`.
 
-4. Local Development:
-   - Create a virtual environment: `python -m venv venv`
+4. Local Development using `uv`:
+   - Create a virtual environment: `uv venv --python 3.12 venv`
    - Activate it: `source venv/bin/activate` (Linux/Mac) or `venv\Scripts\activate` (Windows)
-   - Install dependencies: `pip install -r requirements.txt`
+   - Install dependencies: `uv pip install -r requirements.txt`
    - Run the server: `python run.py`
 
-## 2. Setting up the Frontend
+## 3. Setting up the Frontend (Manual)
 
-Since Flutter is typically generated on your local machine:
-1. Navigate to the `packages` directory:
+1. Navigate to the frontend directory:
    ```bash
-   cd packages
+   cd packages/frontend
    ```
-2. Create the Flutter project (if not already created) inside the `frontend` directory:
+2. Run the Flutter app:
    ```bash
-   flutter create frontend
+   flutter pub get
+   flutter run
    ```
-3. Run the Flutter app:
-   ```bash
-   cd frontend
-   flutter run -d chrome
-   ```
-
-## 3. Running with Docker Compose
-
-You can spin up both the backend and frontend using Docker Compose.
-
-1. In the root directory of the project, run:
-   ```bash
-   docker-compose up --build
-   ```
-
-2. Access the services:
-   - **Frontend**: http://localhost:8080
-   - **Backend API**: http://localhost:5000
