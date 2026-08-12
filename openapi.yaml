@@ -1,0 +1,185 @@
+openapi: 3.0.3
+info:
+  title: Medithon API
+  description: API specifications for the Medithon Flask Backend supporting the offline-first Flutter App. Includes auth, patient syncing, and ML trajectory predictions.
+  version: 1.1.0
+servers:
+  - url: http://localhost:5000/api
+    description: Local development server
+paths:
+  /auth/register:
+    post:
+      summary: Register a new user (Healthcare Worker or Patient)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserRegister'
+      responses:
+        '201':
+          description: User registered successfully
+        '409':
+          description: Username or email already exists
+  /auth/login:
+    post:
+      summary: Login to get a JWT token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserLogin'
+      responses:
+        '200':
+          description: Login successful
+  /patients/sync:
+    post:
+      summary: Sync offline patient data to the cloud
+      description: Endpoint for the mobile app to push newly created patients and their demographics to the Neon database when internet connectivity is restored.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/Patient'
+      responses:
+        '200':
+          description: Sync successful
+  /assessments/sync:
+    post:
+      summary: Sync offline Pirani assessments
+      description: Pushes captured 6-component Pirani scores (and their associated image URLs) to the cloud.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/Assessment'
+      responses:
+        '200':
+          description: Sync successful
+  /ml/predict-trajectory:
+    post:
+      summary: Predict tenotomy timing and remaining cast count
+      description: Feeds the patient's historical Pirani scores into the backend scikit-learn/PyTorch time-series model to predict the Ponseti protocol trajectory.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                patient_id:
+                  type: integer
+      responses:
+        '200':
+          description: Trajectory prediction returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrajectoryPrediction'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    UserRegister:
+      type: object
+      required:
+        - username
+        - email
+        - password
+        - role
+      properties:
+        username:
+          type: string
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+        role:
+          type: string
+          enum: [healthcare_worker, patient]
+    UserLogin:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+    Patient:
+      type: object
+      properties:
+        id:
+          type: integer
+        local_db_id:
+          type: string
+          description: SQLite ID from the mobile device for reconciliation
+        name:
+          type: string
+        date_of_birth:
+          type: string
+          format: date
+        affected_foot:
+          type: string
+          enum: [left, right, bilateral]
+    Assessment:
+      type: object
+      properties:
+        id:
+          type: integer
+        patient_id:
+          type: integer
+        week_number:
+          type: integer
+        hindfoot_posterior_crease:
+          type: number
+        hindfoot_rigid_equinus:
+          type: number
+        hindfoot_empty_heel:
+          type: number
+        midfoot_medial_crease:
+          type: number
+        midfoot_lateral_curvature:
+          type: number
+        midfoot_lateral_talus_head:
+          type: number
+        total_pirani_score:
+          type: number
+        image_medial_url:
+          type: string
+        image_lateral_url:
+          type: string
+        image_posterior_url:
+          type: string
+    TrajectoryPrediction:
+      type: object
+      properties:
+        predicted_tenotomy_week:
+          type: integer
+        predicted_remaining_casts:
+          type: integer
+        confidence_interval:
+          type: string
+        at_risk_flag:
+          type: boolean
+          description: True if the patient is deviating from expected trajectory

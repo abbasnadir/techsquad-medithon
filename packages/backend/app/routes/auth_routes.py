@@ -1,9 +1,9 @@
 from flask import Blueprint, request, jsonify
-from pydantic import ValidationError
 import bcrypt
 from app.database import db
 from app.models.user import User
 from app.schemas.auth_schema import UserRegisterSchema, UserLoginSchema
+from pydantic import ValidationError
 from app.utils.jwt_util import generate_token
 from app.middlewares.auth_middleware import require_auth
 
@@ -14,7 +14,10 @@ def register():
     data = request.get_json()
     
     # Validate with Pydantic
-    schema = UserRegisterSchema(**data)
+    try:
+        schema = UserRegisterSchema(**data)
+    except ValidationError as e:
+        return jsonify({"errors": e.errors()}), 400
     
     if User.query.filter_by(email=schema.email).first():
         return jsonify({"error": "Conflict", "message": "Email already exists"}), 409
@@ -27,7 +30,8 @@ def register():
     new_user = User(
         username=schema.username,
         email=schema.email,
-        password_hash=hashed.decode('utf-8')
+        password_hash=hashed.decode('utf-8'),
+        role=schema.role
     )
     
     db.session.add(new_user)
@@ -43,7 +47,10 @@ def login():
     data = request.get_json()
     
     # Validate with Pydantic
-    schema = UserLoginSchema(**data)
+    try:
+        schema = UserLoginSchema(**data)
+    except ValidationError as e:
+        return jsonify({"errors": e.errors()}), 400
     
     user = User.query.filter_by(email=schema.email).first()
     
