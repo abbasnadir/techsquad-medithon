@@ -1,9 +1,11 @@
-import 'dart:io';
+import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
+import 'package:frontend/core/theme.dart';
 import 'package:frontend/features/scan/mock_3d_model_screen.dart';
 import 'dart:ui' as ui;
 
@@ -29,17 +31,28 @@ class _ScanFlowScreenState extends State<ScanFlowScreen> {
   bool _permissionDenied = false;
   bool _isProcessing = false;
   
-  final PoseDetector _poseDetector = PoseDetector(options: PoseDetectorOptions());
+  PoseDetector? _poseDetector;
 
   @override
   void initState() {
     super.initState();
+    try {
+      if (!kIsWeb) {
+        _poseDetector = PoseDetector(options: PoseDetectorOptions());
+      }
+    } catch (_) {}
     _initCamera();
   }
 
   Future<void> _initCamera() async {
-    final status = await Permission.camera.request();
-    if (status.isGranted) {
+    try {
+      if (!kIsWeb) {
+        final status = await Permission.camera.request();
+        if (!status.isGranted) {
+          if (mounted) setState(() => _permissionDenied = true);
+          return;
+        }
+      }
       _cameras = await availableCameras();
       if (_cameras != null && _cameras!.isNotEmpty) {
         _cameraController = CameraController(
@@ -51,32 +64,41 @@ class _ScanFlowScreenState extends State<ScanFlowScreen> {
         await _cameraController!.initialize();
         if (mounted) setState(() => _isCameraInitialized = true);
       }
-    } else {
-      if (mounted) setState(() => _permissionDenied = true);
+    } catch (e) {
+      // Camera may not be accessible on some desktop/web configurations
     }
   }
 
   @override
   void dispose() {
     _cameraController?.dispose();
-    _poseDetector.close();
+    _poseDetector?.close();
     super.dispose();
   }
 
-  Future<void> _processImageFile(File imageFile) async {
+  Future<void> _processImageFile(XFile photo) async {
     setState(() => _isProcessing = true);
     try {
-      final inputImage = InputImage.fromFile(imageFile);
-      final List<Pose> poses = await _poseDetector.processImage(inputImage);
-      
-      final bool isMock = poses.isEmpty;
+      final Uint8List imageBytes = await photo.readAsBytes();
+      List<Pose> poses = [];
+      bool isMock = true;
+
+      if (_poseDetector != null && !kIsWeb) {
+        try {
+          final inputImage = InputImage.fromFilePath(photo.path);
+          poses = await _poseDetector!.processImage(inputImage);
+          isMock = poses.isEmpty;
+        } catch (_) {
+          isMock = true;
+        }
+      }
       
       if (mounted) {
         final proceed = await Navigator.push<bool>(
           context,
           MaterialPageRoute(
             builder: (_) => ImageAnalysisScreen(
-              imageFile: imageFile, 
+              imageBytes: imageBytes, 
               poses: poses,
               viewName: _views[_currentStep],
               isFinalStep: _currentStep == _views.length - 1,
@@ -85,7 +107,7 @@ class _ScanFlowScreenState extends State<ScanFlowScreen> {
           ),
         );
         
-        if (proceed == true) {
+        if (proceed == true && mounted) {
           if (_currentStep < _views.length - 1) {
             setState(() => _currentStep++);
           }
@@ -101,12 +123,16 @@ class _ScanFlowScreenState extends State<ScanFlowScreen> {
   }
 
   Future<void> _captureImage() async {
-    if (_cameraController == null || !_cameraController!.value.isInitialized) return;
+    if (_cameraController == null || !_cameraController!.value.isInitialized) {
+      // If camera not ready, open gallery/file picker directly
+      await _pickImage();
+      return;
+    }
     try {
       final XFile photo = await _cameraController!.takePicture();
-      await _processImageFile(File(photo.path));
+      await _processImageFile(photo);
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Capture failed: $e')));
+      await _pickImage();
     }
   }
 
@@ -114,7 +140,7 @@ class _ScanFlowScreenState extends State<ScanFlowScreen> {
     final picker = ImagePicker();
     final XFile? file = await picker.pickImage(source: ImageSource.gallery);
     if (file != null) {
-      await _processImageFile(File(file.path));
+      await _processImageFile(file);
     }
   }
 
@@ -128,16 +154,16 @@ class _ScanFlowScreenState extends State<ScanFlowScreen> {
     }
 
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: AppColors.antiFlashWhite,
       appBar: AppBar(
-        title: Text('Step ${_currentStep + 1}: ${_views[_currentStep]}'),
-        backgroundColor: Colors.black,
+        title: Text('CTEV Scan: Step ${_currentStep + 1} of 3'),
+        backgroundColor: AppColors.ming,
         foregroundColor: Colors.white,
         actions: [
           IconButton(
-            icon: const Icon(Icons.photo_library),
+            icon: const Icon(Icons.photo_library_outlined),
             onPressed: _isProcessing ? null : _pickImage,
-            tooltip: 'Upload Image',
+            tooltip: 'Upload from Gallery',
           )
         ],
       ),
@@ -150,24 +176,59 @@ class _ScanFlowScreenState extends State<ScanFlowScreen> {
               child: CameraPreview(_cameraController!),
             )
           else
-            const Center(child: CircularProgressIndicator()),
+            const Center(child: CircularProgressIndicator(color: AppColors.ming)),
             
+          // Top Guidance & Step Indicator Card
           Positioned(
             top: 16, left: 16, right: 16,
             child: Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(color: Colors.black87, borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.teal)),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.94),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppColors.columbiaBlue, width: 1.2),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.08),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  )
+                ],
+              ),
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Row(
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Icon(Icons.info_outline, color: Colors.teal),
-                      SizedBox(width: 8),
-                      Text('ML Guidance', style: TextStyle(color: Colors.teal, fontWeight: FontWeight.bold, fontSize: 16)),
+                      Row(
+                        children: [
+                          const Icon(Icons.camera_enhance, color: AppColors.ming, size: 20),
+                          const SizedBox(width: 8),
+                          Text(
+                            _views[_currentStep],
+                            style: const TextStyle(color: AppColors.mingDark, fontWeight: FontWeight.bold, fontSize: 15),
+                          ),
+                        ],
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: AppColors.palmLeaf.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          'Step ${_currentStep + 1} of 3',
+                          style: const TextStyle(color: AppColors.palmLeaf, fontSize: 11, fontWeight: FontWeight.bold),
+                        ),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 8),
-                  Text(_instructions[_currentStep], style: const TextStyle(color: Colors.white, fontSize: 14)),
+                  Text(
+                    _instructions[_currentStep], 
+                    style: const TextStyle(color: Color(0xFF374151), fontSize: 13.5, height: 1.3),
+                  ),
                 ],
               ),
             ),
@@ -175,32 +236,63 @@ class _ScanFlowScreenState extends State<ScanFlowScreen> {
           
           if (_isProcessing)
             Container(
-              color: Colors.black54,
+              color: Colors.black45,
               child: const Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    CircularProgressIndicator(color: Colors.teal),
-                    SizedBox(height: 16),
-                    Text('Running ML Pose Detection...', style: TextStyle(color: Colors.white)),
-                  ],
+                child: Card(
+                  color: Colors.white,
+                  child: Padding(
+                    padding: EdgeInsets.all(24.0),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        CircularProgressIndicator(color: AppColors.ming),
+                        SizedBox(height: 16),
+                        Text('Analyzing anatomical markers...', style: TextStyle(color: AppColors.mingDark, fontSize: 15, fontWeight: FontWeight.w600)),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ),
           
+          // Bottom Capture Bar
           Positioned(
-            bottom: 32,
-            left: 24,
-            right: 24,
-            child: ElevatedButton.icon(
-              onPressed: _isProcessing ? null : _captureImage,
-              icon: const Icon(Icons.camera),
-              label: Text('Capture ${_views[_currentStep]}'),
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 20),
-                backgroundColor: Colors.teal,
-                foregroundColor: Colors.white,
-              ),
+            bottom: 28,
+            left: 20,
+            right: 20,
+            child: Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: _isProcessing ? null : _captureImage,
+                    icon: const Icon(Icons.camera_alt),
+                    label: Text('Capture ${_views[_currentStep]}'),
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      backgroundColor: AppColors.ming,
+                      foregroundColor: Colors.white,
+                      elevation: 4,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(14),
+                    boxShadow: [
+                      BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 6),
+                    ],
+                  ),
+                  child: IconButton(
+                    icon: const Icon(Icons.photo_library, color: AppColors.ming),
+                    onPressed: _isProcessing ? null : _pickImage,
+                    tooltip: 'Upload Image',
+                    padding: const EdgeInsets.all(14),
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -209,8 +301,8 @@ class _ScanFlowScreenState extends State<ScanFlowScreen> {
   }
 }
 
-class ImageAnalysisScreen extends StatelessWidget {
-  final File imageFile;
+class ImageAnalysisScreen extends StatefulWidget {
+  final Uint8List imageBytes;
   final List<Pose> poses;
   final String viewName;
   final bool isFinalStep;
@@ -218,192 +310,319 @@ class ImageAnalysisScreen extends StatelessWidget {
 
   const ImageAnalysisScreen({
     super.key, 
-    required this.imageFile, 
+    required this.imageBytes, 
     required this.poses, 
     required this.viewName, 
     required this.isFinalStep,
     required this.isMock,
   });
 
-  Future<ui.Image> _loadImage() async {
-    final bytes = await imageFile.readAsBytes();
-    final codec = await ui.instantiateImageCodec(bytes);
+  @override
+  State<ImageAnalysisScreen> createState() => _ImageAnalysisScreenState();
+}
+
+class _ImageAnalysisScreenState extends State<ImageAnalysisScreen> {
+  ui.Image? _loadedImage;
+  Map<String, Offset> _keypoints = {};
+  String? _activeDraggingKey;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadImage();
+  }
+
+  Future<void> _loadImage() async {
+    final codec = await ui.instantiateImageCodec(widget.imageBytes);
     final frameInfo = await codec.getNextFrame();
-    return frameInfo.image;
+    final img = frameInfo.image;
+    
+    final w = img.width.toDouble();
+    final h = img.height.toDouble();
+
+    // Position default markers on the lower leg / foot region
+    Map<String, Offset> initialPoints = {};
+    if (widget.viewName.contains('Medial')) {
+      // Medial (Inside view): Calf/Ankle top-center, Heel lower-left, Toes lower-right
+      initialPoints['Ankle'] = Offset(w * 0.50, h * 0.70);
+      initialPoints['Heel'] = Offset(w * 0.36, h * 0.85);
+      initialPoints['Toes'] = Offset(w * 0.66, h * 0.86);
+    } else if (widget.viewName.contains('Lateral')) {
+      // Lateral (Outside view): Ankle top-center, Heel lower-right, Toes lower-left
+      initialPoints['Ankle'] = Offset(w * 0.50, h * 0.70);
+      initialPoints['Heel'] = Offset(w * 0.64, h * 0.85);
+      initialPoints['Toes'] = Offset(w * 0.34, h * 0.86);
+    } else {
+      // Posterior (Heel view): Calf, Ankle/Achilles, Heel base
+      initialPoints['Calf'] = Offset(w * 0.50, h * 0.62);
+      initialPoints['Ankle'] = Offset(w * 0.50, h * 0.74);
+      initialPoints['Heel'] = Offset(w * 0.50, h * 0.88);
+    }
+
+    if (mounted) {
+      setState(() {
+        _loadedImage = img;
+        _keypoints = initialPoints;
+      });
+    }
+  }
+
+  void _onPanStart(DragStartDetails details, BoxConstraints constraints) {
+    if (_loadedImage == null) return;
+    final renderBox = context.findRenderObject() as RenderBox?;
+    if (renderBox == null) return;
+
+    // Convert local position inside FittedBox to image coordinate space
+    final w = _loadedImage!.width.toDouble();
+    final h = _loadedImage!.height.toDouble();
+    final scale = constraints.maxWidth / w;
+    final renderedHeight = h * scale;
+    final touchOffset = Offset(
+      details.localPosition.dx / scale,
+      details.localPosition.dy / scale,
+    );
+
+    // Find nearest landmark within 60px (image coords)
+    String? nearestKey;
+    double minDistance = 60.0 / scale; // scaled threshold
+
+    _keypoints.forEach((key, point) {
+      final d = (point - touchOffset).distance;
+      if (d < minDistance) {
+        minDistance = d;
+        nearestKey = key;
+      }
+    });
+
+    _activeDraggingKey = nearestKey;
+  }
+
+  void _onPanUpdate(DragUpdateDetails details, BoxConstraints constraints) {
+    if (_loadedImage == null || _activeDraggingKey == null) return;
+
+    final w = _loadedImage!.width.toDouble();
+    final h = _loadedImage!.height.toDouble();
+    final scale = constraints.maxWidth / w;
+
+    final newOffset = Offset(
+      (details.localPosition.dx / scale).clamp(0.0, w),
+      (details.localPosition.dy / scale).clamp(0.0, h),
+    );
+
+    setState(() {
+      _keypoints[_activeDraggingKey!] = newOffset;
+    });
+  }
+
+  void _onPanEnd(DragEndDetails details) {
+    _activeDraggingKey = null;
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.antiFlashWhite,
       appBar: AppBar(
-        title: Text('$viewName Analysis'),
+        title: Text('${widget.viewName} Alignment'),
+        backgroundColor: AppColors.ming,
+        foregroundColor: Colors.white,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            tooltip: 'Reset Markers',
+            onPressed: _loadImage,
+          ),
+        ],
       ),
-      body: FutureBuilder<ui.Image>(
-        future: _loadImage(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (!snapshot.hasData) {
-            return const Center(child: Text('Failed to load image.'));
-          }
-
-          return SingleChildScrollView(
-            child: Column(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  child: FittedBox(
-                    fit: BoxFit.contain,
-                    child: SizedBox(
-                      width: snapshot.data!.width.toDouble(),
-                      height: snapshot.data!.height.toDouble(),
-                      child: CustomPaint(
-                        painter: PosePainter(snapshot.data!, poses, isMock, viewName),
+      body: _loadedImage == null
+          ? const Center(child: CircularProgressIndicator(color: AppColors.ming))
+          : SingleChildScrollView(
+              child: Column(
+                children: [
+                  Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: AppColors.columbiaBlue, width: 1.0),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.04),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        )
+                      ],
+                    ),
+                    child: const Row(
+                      children: [
+                        Icon(Icons.touch_app, color: AppColors.ming, size: 24),
+                        SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            'Drag markers directly onto the baby\'s leg & foot landmarks.',
+                            style: TextStyle(color: AppColors.mingDark, fontSize: 13.5, fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: AppColors.columbiaBlue, width: 1.0),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.05),
+                          blurRadius: 10,
+                          offset: const Offset(0, 3),
+                        )
+                      ],
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        return GestureDetector(
+                          onPanStart: (d) => _onPanStart(d, constraints),
+                          onPanUpdate: (d) => _onPanUpdate(d, constraints),
+                          onPanEnd: _onPanEnd,
+                          child: FittedBox(
+                            fit: BoxFit.contain,
+                            child: SizedBox(
+                              width: _loadedImage!.width.toDouble(),
+                              height: _loadedImage!.height.toDouble(),
+                              child: CustomPaint(
+                                painter: FootLandmarkPainter(
+                                  image: _loadedImage!,
+                                  keypoints: _keypoints,
+                                  viewName: widget.viewName,
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        if (widget.isFinalStep) {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const Mock3DModelScreen()),
+                          );
+                        } else {
+                          Navigator.pop(context, true); 
+                        }
+                      },
+                      icon: Icon(widget.isFinalStep ? Icons.auto_graph : Icons.check_circle),
+                      label: Text(
+                        widget.isFinalStep ? 'Generate 3D Assessment' : 'Confirm & Next View', 
+                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: widget.isFinalStep ? AppColors.palmLeaf : AppColors.ming,
+                        foregroundColor: Colors.white,
+                        minimumSize: const Size(double.infinity, 54),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        elevation: 2,
                       ),
                     ),
                   ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Text(
-                    isMock 
-                      ? 'Demo Mode: Google ML Kit failed to find full body. Displaying simulated keypoints for $viewName.' 
-                      : 'Detected real ML keypoints for $viewName successfully.',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: isMock ? Colors.amber.shade900 : Colors.teal),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                  child: ElevatedButton(
-                    onPressed: () {
-                      if (isFinalStep) {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (_) => const Mock3DModelScreen()),
-                        );
-                      } else {
-                        Navigator.pop(context, true); 
-                      }
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.teal,
-                      foregroundColor: Colors.white,
-                      minimumSize: const Size(double.infinity, 50),
-                    ),
-                    child: Text(isFinalStep ? 'Finish Assessment' : 'Approve & Next View', style: const TextStyle(fontSize: 18)),
-                  ),
-                ),
-                const SizedBox(height: 32),
-              ],
+                  const SizedBox(height: 32),
+                ],
+              ),
             ),
-          );
-        },
-      ),
     );
   }
 }
 
-class PosePainter extends CustomPainter {
+class FootLandmarkPainter extends CustomPainter {
   final ui.Image image;
-  final List<Pose> poses;
-  final bool isMock;
+  final Map<String, Offset> keypoints;
   final String viewName;
 
-  PosePainter(this.image, this.poses, this.isMock, this.viewName);
+  FootLandmarkPainter({
+    required this.image,
+    required this.keypoints,
+    required this.viewName,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
+    // 1. Draw the background image
     canvas.drawImage(image, Offset.zero, Paint());
 
-    final paint = Paint()
-      ..style = PaintingStyle.fill
-      ..strokeWidth = 4.0
-      ..color = Colors.red;
-      
+    // 2. Line Paint for anatomical connections
     final linePaint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 6.0
-      ..color = Colors.tealAccent;
+      ..strokeCap = StrokeCap.round
+      ..color = AppColors.ming;
 
-    if (isMock) {
-      final w = image.width.toDouble();
-      final h = image.height.toDouble();
-      final cx = w / 2;
-      final cy = h / 2;
-      
-      Offset ankle, heel, toe;
-      if (viewName.contains('Medial')) {
-        // Medial (Inside): Heel left, Toes right
-        ankle = Offset(cx, cy - h * 0.15);
-        heel = Offset(cx - w * 0.15, cy + h * 0.1);
-        toe = Offset(cx + w * 0.2, cy + h * 0.15);
-        
-        canvas.drawCircle(ankle, 20, paint);
-        canvas.drawCircle(heel, 20, paint);
-        canvas.drawCircle(toe, 20, paint);
-        
-        canvas.drawLine(ankle, heel, linePaint);
-        canvas.drawLine(heel, toe, linePaint);
-        canvas.drawLine(ankle, toe, linePaint);
-      } else if (viewName.contains('Lateral')) {
-        // Lateral (Outside): Heel right, Toes left
-        ankle = Offset(cx, cy - h * 0.15);
-        heel = Offset(cx + w * 0.15, cy + h * 0.1);
-        toe = Offset(cx - w * 0.2, cy + h * 0.15);
-        
-        canvas.drawCircle(ankle, 20, paint);
-        canvas.drawCircle(heel, 20, paint);
-        canvas.drawCircle(toe, 20, paint);
-        
-        canvas.drawLine(ankle, heel, linePaint);
-        canvas.drawLine(heel, toe, linePaint);
-        canvas.drawLine(ankle, toe, linePaint);
-      } else { // Posterior
-        // Posterior (Heel): Looking at back of heel, toes hidden
-        ankle = Offset(cx, cy - h * 0.15);
-        heel = Offset(cx, cy + h * 0.15);
-        
-        canvas.drawCircle(ankle, 20, paint);
-        canvas.drawCircle(heel, 20, paint);
-        canvas.drawLine(ankle, heel, linePaint);
+    // Connect the points
+    final pointsList = keypoints.values.toList();
+    if (pointsList.length >= 2) {
+      for (int i = 0; i < pointsList.length - 1; i++) {
+        canvas.drawLine(pointsList[i], pointsList[i + 1], linePaint);
       }
-      return;
+      if (pointsList.length == 3 && !viewName.contains('Posterior')) {
+        final dashedPaint = Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 4.0
+          ..color = AppColors.opal;
+        canvas.drawLine(pointsList[0], pointsList[2], dashedPaint);
+      }
     }
 
-    for (final pose in poses) {
-      final landmarksToDraw = [
-        PoseLandmarkType.leftAnkle, PoseLandmarkType.rightAnkle,
-        PoseLandmarkType.leftHeel, PoseLandmarkType.rightHeel,
-        PoseLandmarkType.leftFootIndex, PoseLandmarkType.rightFootIndex,
-      ];
+    // 3. Draw Landmark Nodes and Text Labels
+    final outerGlowPaint = Paint()
+      ..style = PaintingStyle.fill
+      ..color = AppColors.opal.withOpacity(0.45);
 
-      for (var type in landmarksToDraw) {
-        final landmark = pose.landmarks[type];
-        if (landmark != null && landmark.likelihood > 0.5) {
-          canvas.drawCircle(Offset(landmark.x, landmark.y), 20, paint);
-        }
-      }
-      
-      void drawLineIfPresent(PoseLandmarkType a, PoseLandmarkType b) {
-        final lA = pose.landmarks[a];
-        final lB = pose.landmarks[b];
-        if (lA != null && lB != null && lA.likelihood > 0.5 && lB.likelihood > 0.5) {
-          canvas.drawLine(Offset(lA.x, lA.y), Offset(lB.x, lB.y), linePaint);
-        }
-      }
+    final nodePaint = Paint()
+      ..style = PaintingStyle.fill
+      ..color = AppColors.palmLeaf;
 
-      drawLineIfPresent(PoseLandmarkType.leftAnkle, PoseLandmarkType.leftHeel);
-      drawLineIfPresent(PoseLandmarkType.leftHeel, PoseLandmarkType.leftFootIndex);
-      drawLineIfPresent(PoseLandmarkType.leftAnkle, PoseLandmarkType.leftFootIndex);
-      
-      drawLineIfPresent(PoseLandmarkType.rightAnkle, PoseLandmarkType.rightHeel);
-      drawLineIfPresent(PoseLandmarkType.rightHeel, PoseLandmarkType.rightFootIndex);
-      drawLineIfPresent(PoseLandmarkType.rightAnkle, PoseLandmarkType.rightFootIndex);
-    }
+    final borderPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 4.0
+      ..color = Colors.white;
+
+    keypoints.forEach((label, point) {
+      // Outer glow
+      canvas.drawCircle(point, 32, outerGlowPaint);
+      // Inner node
+      canvas.drawCircle(point, 20, nodePaint);
+      // White border
+      canvas.drawCircle(point, 20, borderPaint);
+
+      // Label background & text
+      final textSpan = TextSpan(
+        text: ' $label ',
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 22,
+          fontWeight: FontWeight.bold,
+          backgroundColor: AppColors.mingDark,
+        ),
+      );
+      final textPainter = TextPainter(
+        text: textSpan,
+        textDirection: TextDirection.ltr,
+      )..layout();
+
+      final textOffset = Offset(point.dx - (textPainter.width / 2), point.dy - 55);
+      textPainter.paint(canvas, textOffset);
+    });
   }
 
   @override
-  bool shouldRepaint(covariant PosePainter oldDelegate) => oldDelegate.image != image || oldDelegate.poses != poses || oldDelegate.isMock != isMock;
+  bool shouldRepaint(covariant FootLandmarkPainter oldDelegate) => true;
 }
+

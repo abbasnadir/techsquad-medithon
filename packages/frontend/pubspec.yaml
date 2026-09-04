@@ -1,5 +1,5 @@
 name: frontend
-description: A new Flutter project for Medithon.
+description: A new Flutter project for SureStep.
 publish_to: 'none'
 
 version: 1.0.0+1
@@ -30,3 +30,4 @@ flutter:
   uses-material-design: true
   assets:
     - .env
+    - assets/

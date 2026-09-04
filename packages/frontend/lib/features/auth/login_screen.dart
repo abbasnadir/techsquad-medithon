@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:frontend/core/api_client.dart';
+import 'package:frontend/core/theme.dart';
 import 'package:frontend/features/healthcare_worker/healthcare_worker_dashboard.dart';
 import 'package:frontend/features/patient/patient_dashboard.dart';
 import 'package:frontend/features/auth/register_screen.dart';
@@ -52,58 +51,91 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.antiFlashWhite,
       body: Center(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0),
+          padding: const EdgeInsets.all(28.0),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Icon(Icons.health_and_safety, size: 80, color: Colors.teal),
-              const SizedBox(height: 24),
+              Center(
+                child: Container(
+                  width: 130,
+                  height: 130,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.columbiaBlue.withOpacity(0.4),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Image.asset(
+                    'assets/logo.png',
+                    fit: BoxFit.contain,
+                    errorBuilder: (_, __, ___) => const Icon(Icons.health_and_safety, size: 54, color: AppColors.ming),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
               Text(
-                'Medithon',
+                'SureStep',
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                   fontWeight: FontWeight.bold,
-                  color: Colors.teal,
+                  color: AppColors.mingDark,
+                  letterSpacing: 0.5,
                 ),
               ),
-              const SizedBox(height: 48),
+              const SizedBox(height: 6),
+              const Text(
+                'Clubfoot Care & Assessment Platform',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: AppColors.textMuted,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 36),
               TextField(
                 controller: _emailCtrl,
+                style: const TextStyle(color: AppColors.textDark, fontWeight: FontWeight.w500),
                 decoration: const InputDecoration(
                   labelText: 'Email or Username',
-                  border: const OutlineInputBorder(),
-                  prefixIcon: const Icon(Icons.person),
+                  labelStyle: TextStyle(color: AppColors.textMuted),
+                  prefixIcon: Icon(Icons.person, color: AppColors.ming),
                 ),
               ),
               const SizedBox(height: 16),
               TextField(
                 controller: _passCtrl,
                 obscureText: true,
+                style: const TextStyle(color: AppColors.textDark, fontWeight: FontWeight.w500),
                 decoration: const InputDecoration(
                   labelText: 'Password',
-                  border: const OutlineInputBorder(),
-                  prefixIcon: const Icon(Icons.lock),
+                  labelStyle: TextStyle(color: AppColors.textMuted),
+                  prefixIcon: Icon(Icons.lock, color: AppColors.ming),
                 ),
               ),
               const SizedBox(height: 24),
               ElevatedButton(
                 onPressed: _isLoading ? null : _login,
                 style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.ming,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                 ),
                 child: _isLoading 
-                    ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Text('Login'),
+                    ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : const Text('Login', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               ),
               const SizedBox(height: 16),
               TextButton(
                 onPressed: () {
                   Navigator.push(context, MaterialPageRoute(builder: (_) => const RegisterScreen()));
                 },
-                child: const Text("Don't have an account? Register"),
+                child: const Text(
+                  "Don't have an account? Register",
+                  style: TextStyle(color: AppColors.palmLeaf, fontWeight: FontWeight.w600),
+                ),
               ),
             ],
           ),
@@ -112,3 +144,4 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 }
+

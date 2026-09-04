@@ -1,28 +1,27 @@
-# Medithon Project Setup
+# SureStep — Setup & Execution Guide
 
-This is a monorepo setup for a Flutter Frontend and Flask Backend using PostgreSQL (Neon).
+This is a monorepo setup for the **SureStep** Clubfoot Care & Assessment platform (Flutter Frontend + Flask Backend with SQLite/PostgreSQL).
 
-## Directory Structure
-- `packages/backend/`: Contains the Flask API backend.
-- `packages/frontend/`: Contains the Flutter application.
-- `run.sh`: Bash script to easily boot the frontend or backend.
+## 🚀 1. Quick Launch (Recommended)
+You can boot the full stack and launch the standalone desktop app window with a single command:
 
-## Prerequisites
-- `uv` (Lightning-fast Python package manager)
-- Python 3.12+ (for local backend development)
-- Flutter SDK (for local frontend development)
+```bash
+./run.sh app
+```
 
-## 1. Running the Project (Fast Way)
-We have provided a bash script to handle all dependencies and boot the servers automatically.
+For complete instructions, demo credentials, and features, see [HOW_TO_RUN.md](file:///Users/nidhiii/Clubfoot/techsquad-medithon/HOW_TO_RUN.md).
 
-1. **Backend**:
-   ```bash
-   ./run.sh backend
-   ```
-2. **Frontend**:
-   ```bash
-   ./run.sh frontend
-   ```
+## 📁 Directory Structure
+- `packages/backend/`: Flask API backend (runs on port `5050`).
+- `packages/frontend/`: Flutter web/mobile application (runs on port `3000`).
+- `run.sh`: Master CLI tool for booting services.
+- `HOW_TO_RUN.md`: Detailed testing and user flow guide.
+
+## 2. Individual Commands
+- **Start Backend**: `./run.sh backend`
+- **Start Frontend**: `./run.sh frontend`
+- **Open Desktop App Window**: `./run.sh desktop`
+
 
 ## 2. Setting up the Backend (Manual)
 

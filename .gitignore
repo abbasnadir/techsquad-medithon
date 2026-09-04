@@ -40,6 +40,9 @@ Thumbs.db
 # Environment variables
 .env
 .env.local
+*.db
+instance/
+packages/backend/instance/
 
 # Docker
 .dockerignore

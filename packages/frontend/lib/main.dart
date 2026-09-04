@@ -6,19 +6,19 @@ import 'package:frontend/features/auth/login_screen.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await dotenv.load(fileName: ".env");
-  runApp(const MedithonApp());
+  runApp(const SureStepApp());
 }
 
-class MedithonApp extends StatelessWidget {
-  const MedithonApp({super.key});
+class SureStepApp extends StatelessWidget {
+  const SureStepApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Medithon',
+      title: 'SureStep',
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
-      themeMode: ThemeMode.system,
+      themeMode: ThemeMode.light,
       home: const LoginScreen(),
       debugShowCheckedModeBanner: false,
     );
